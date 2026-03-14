@@ -12,7 +12,7 @@ const routes = [
 export function AppNav() {
   return (
     <nav className="rounded-xl border border-slate-200 bg-white/90 p-2 shadow-sm dark:border-slate-800 dark:bg-slate-900/70 dark:shadow-none">
-      <ul className="flex flex-nowrap gap-1.5 overflow-x-auto pb-1 md:flex-wrap md:gap-2 md:overflow-visible md:pb-0">
+      <ul className="flex flex-nowrap gap-1.5 overflow-x-auto pb-1 md:flex-wrap md:gap-2 md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {routes.map((route) => (
           <li className="shrink-0" key={route.to}>
             <NavLink

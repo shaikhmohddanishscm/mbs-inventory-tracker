@@ -29,16 +29,16 @@ export function AppLayout() {
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2.5 md:justify-end">
-              <div className="min-w-0 rounded-xl border border-slate-200/80 bg-white/80 px-3 py-2 md:text-right dark:border-slate-700 dark:bg-slate-900/80">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Signed in as</p>
-                <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{user?.email ?? 'Unknown user'}</p>
+            <div className="flex flex-row items-center gap-2 sm:gap-2.5 sm:justify-end">
+              <div className="min-w-0 flex-1 rounded-xl border border-slate-200/80 bg-white/80 px-2 py-1.5 sm:px-3 sm:py-2 md:text-right dark:border-slate-700 dark:bg-slate-900/80">
+                <p className="text-[10px] sm:text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Signed in</p>
+                <p className="truncate text-xs sm:text-sm font-medium text-slate-900 dark:text-slate-100">{user?.email ?? 'Unknown user'}</p>
               </div>
 
               <Button
                 className="shrink-0"
                 variant="outline"
-                size="icon-sm"
+                size="icon"
                 onClick={toggleTheme}
                 aria-label={isDarkTheme ? 'Switch to light theme' : 'Switch to dark theme'}
                 title={isDarkTheme ? 'Switch to light theme' : 'Switch to dark theme'}
@@ -46,9 +46,9 @@ export function AppLayout() {
                 {isDarkTheme ? <Sun className="size-4" /> : <Moon className="size-4" />}
               </Button>
 
-              <Button className="shrink-0 gap-1.5" variant="outline" onClick={() => void signOut()}>
+              <Button className="shrink-0 sm:gap-1.5 px-2.5 sm:px-4" variant="outline" onClick={() => void signOut()}>
                 <LogOut className="size-4" />
-                Logout
+                <span className="hidden sm:inline">Logout</span>
               </Button>
             </div>
           </div>
