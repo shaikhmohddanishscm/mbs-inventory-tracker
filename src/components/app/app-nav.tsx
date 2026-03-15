@@ -26,8 +26,7 @@ export function AppNav() {
                 }`
               }
             >
-              <span className="md:hidden">{route.mobileLabel}</span>
-              <span className="hidden md:inline">{route.label}</span>
+              {route.label}
             </NavLink>
           </li>
         ))}
