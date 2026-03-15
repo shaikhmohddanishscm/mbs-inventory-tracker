@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { ModuleShell } from '@/components/app/module-shell'
+import { CollapsibleSection } from '@/components/ui/collapsible-section'
 import { Button } from '@/components/ui/button'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { Input } from '@/components/ui/input'
@@ -385,9 +386,8 @@ export function CombiMakerPage() {
 
       <div className="space-y-6">
         {/* Create Product */}
-        <section className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/50">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Add Product</h3>
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
+        <CollapsibleSection title="Add Product">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
             <div className="space-y-2">
               <Label htmlFor="product-name">Product Name</Label>
               <Input id="product-name" value={productName} onChange={(e) => setProductName(e.target.value)} />
@@ -473,7 +473,7 @@ export function CombiMakerPage() {
             </Button>
           </div>
           {errorMsg && !expandedProductId ? <p className="mt-3 text-sm text-rose-600">{errorMsg}</p> : null}
-        </section>
+        </CollapsibleSection>
 
         {/* Products Table */}
         <section>

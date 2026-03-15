@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { ModuleShell } from '@/components/app/module-shell'
+import { CollapsibleSection } from '@/components/ui/collapsible-section'
 import { Button } from '@/components/ui/button'
 import { Trash2, Edit2 } from 'lucide-react'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
@@ -595,15 +596,14 @@ export function RawBuyingPage() {
 
       <div className="space-y-6">
         {/* Raw Material Buying Form */}
-        <section className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/50">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Raw Material Buying</h3>
+        <CollapsibleSection title="Raw Material Buying">
+          <div className="flex justify-end mb-3">
             <Button type="button" onClick={() => setModalOpen(true)} className="shrink-0">
-              +
+              + Manage Materials
             </Button>
           </div>
 
-          <div className="mt-4 space-y-3">
+          <div className="space-y-3">
             {lines.map((line, index) => (
               <div key={index} className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-5 md:items-end dark:border-slate-700 dark:bg-slate-900/70">
                 <div className="space-y-1">
@@ -662,7 +662,7 @@ export function RawBuyingPage() {
             </Button>
             {formError ? <p className="text-sm text-rose-600">{formError}</p> : null}
           </div>
-        </section>
+        </CollapsibleSection>
 
         {/* Recent Movements */}
         <section>

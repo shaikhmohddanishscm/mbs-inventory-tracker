@@ -3,6 +3,7 @@ import { Trash2, Edit2 } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { ModuleShell } from '@/components/app/module-shell'
+import { CollapsibleSection } from '@/components/ui/collapsible-section'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -284,10 +285,8 @@ export function SalesPage() {
       tableName="Sales"
     >
       <div className="space-y-6">
-        <section className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/50">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Record Sales Entry</h3>
-
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
+        <CollapsibleSection title="Record Sales Entry">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
             <div className="space-y-2">
               <Label>Product</Label>
               <Select
@@ -364,7 +363,7 @@ export function SalesPage() {
             </Button>
             {errorMsg ? <p className="text-sm text-rose-600">{errorMsg}</p> : null}
           </div>
-        </section>
+        </CollapsibleSection>
 
         <section>
           <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Recent Sales Movements</h3>
