@@ -190,11 +190,11 @@ export function DashboardPage() {
           <CardTitle className="text-base font-semibold text-slate-900 dark:text-slate-100">
             {currentViewLabel}
           </CardTitle>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="space-y-1">
+          <div className="flex w-full flex-col sm:w-auto sm:flex-row sm:items-center gap-3">
+            <div className="space-y-1 w-full sm:w-auto">
               <Label className="text-xs text-slate-500">Chart</Label>
               <Select value={chartView} onValueChange={onChartViewChange}>
-                <SelectTrigger className="w-[220px]">
+                <SelectTrigger className="w-full sm:w-[220px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -206,10 +206,10 @@ export function DashboardPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 w-full sm:w-auto">
               <Label className="text-xs text-slate-500">Filter</Label>
               <Select value={itemFilter} onValueChange={(v) => setItemFilter(v ?? 'ALL')}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px]">
                   <SelectValue placeholder={filterLabel} />
                 </SelectTrigger>
                 <SelectContent>
