@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ModuleShell } from '@/components/app/module-shell'
 import { CollapsibleSection } from '@/components/ui/collapsible-section'
 import { Button } from '@/components/ui/button'
+import { Combobox } from '@/components/ui/combobox'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -58,8 +59,8 @@ interface FormulaEditRow {
 
 const units: Unit[] = ['Piece', 'Bottle']
 
-const productsKey = ['products-list']
-const rawMaterialsKey = ['raw-materials-options']
+const productsKey = ['products']
+const rawMaterialsKey = ['raw-materials']
 const formulaKeyBase = ['formula-items']
 
 const newFormulaRow = (): FormulaEditRow => ({
@@ -162,12 +163,21 @@ export function CombiMakerPage() {
 
   const [errorMsg, setErrorMsg] = useState('')
 
+  // Search state
+  const [productSearch, setProductSearch] = useState('')
+
   // Expanded formula view
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null)
 
   const productsQuery = useQuery({ queryKey: productsKey, queryFn: fetchProducts, staleTime: 2 * 60 * 1000, refetchOnWindowFocus: false })
 
-  const { paginatedItems: paginatedProducts, currentPage, pageSize, setPageSize, totalItems, setCurrentPage } = usePagination(productsQuery.data ?? [], 5)
+  const filteredProducts = useMemo(() => {
+    const q = productSearch.trim().toLowerCase()
+    if (!q) return productsQuery.data ?? []
+    return (productsQuery.data ?? []).filter((p) => p.name.toLowerCase().includes(q))
+  }, [productsQuery.data, productSearch])
+
+  const { paginatedItems: paginatedProducts, currentPage, pageSize, setPageSize, totalItems, setCurrentPage } = usePagination(filteredProducts, 5)
 
   const rawMaterialsQuery = useQuery({ queryKey: rawMaterialsKey, queryFn: fetchRawMaterials, staleTime: 2 * 60 * 1000, refetchOnWindowFocus: false })
 
@@ -184,6 +194,11 @@ export function CombiMakerPage() {
     for (const item of rawMaterialsQuery.data ?? []) map.set(item.id, item)
     return map
   }, [rawMaterialsQuery.data])
+
+  const materialComboboxOptions = useMemo(
+    () => (rawMaterialsQuery.data ?? []).map((m) => ({ value: m.id, label: m.name })),
+    [rawMaterialsQuery.data],
+  )
 
   const createProductMutation = useMutation({
     mutationFn: async (input: { name: string; measuredUnit: Unit; formulaRows: FormulaEditRow[] }) => {
@@ -414,28 +429,12 @@ export function CombiMakerPage() {
           <div className="mt-4">
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300">Formula (Raw Materials Required)</h4>
-              <Button type="button" size="sm" variant="outline" onClick={() => setCreateFormulaRows((prev) => [...prev, newFormulaRow()])}>
-                + Add Row
-              </Button>
             </div>
             <div className="space-y-2">
               {createFormulaRows.map((row, index) => (
                 <div key={index} className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200 bg-white p-2 md:grid-cols-12 dark:border-slate-700 dark:bg-slate-900/70">
                   <div className="md:col-span-5">
-                    <Select value={row.rawMaterialId} onValueChange={(value) => onCreateMaterialChange(index, value ?? '')}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select material">
-                          {row.rawMaterialId ? materialsById.get(row.rawMaterialId)?.name : undefined}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(rawMaterialsQuery.data ?? []).map((material) => (
-                          <SelectItem key={material.id} value={material.id}>
-                            {material.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Combobox options={materialComboboxOptions} value={row.rawMaterialId} onValueChange={(v) => onCreateMaterialChange(index, v)} placeholder="Type or select..." className="w-full" />
                   </div>
                   <div className="md:col-span-2">
                     <Input
@@ -453,12 +452,21 @@ export function CombiMakerPage() {
                   <div className="md:col-span-2">
                     <Input value={row.type} disabled />
                   </div>
-                  <div className="flex items-center md:col-span-1">
+                  <div className="flex items-center gap-1 md:col-span-1">
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
-                      onClick={() => setCreateFormulaRows((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev))}
+                      onClick={() => setCreateFormulaRows((prev) => [...prev, newFormulaRow()])}
+                    >
+                      +
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={createFormulaRows.length <= 1}
+                      onClick={() => setCreateFormulaRows((prev) => prev.filter((_, i) => i !== index))}
                     >
                       -
                     </Button>
@@ -479,6 +487,15 @@ export function CombiMakerPage() {
         {/* Products Table */}
         <section>
           <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Products & Formulas</h3>
+
+          <div className="mb-3">
+            <Input
+              placeholder="Search products..."
+              value={productSearch}
+              onChange={(e) => { setProductSearch(e.target.value); setCurrentPage(1) }}
+              className="w-full sm:max-w-xs"
+            />
+          </div>
 
           {productsQuery.isLoading ? <p className="text-sm text-slate-600 dark:text-slate-300">Loading products...</p> : null}
           {productsQuery.isError ? <p className="text-sm text-rose-600">Failed to load products.</p> : null}
@@ -582,20 +599,7 @@ export function CombiMakerPage() {
                                 <div key={index} className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-12 dark:border-slate-700 dark:bg-slate-900/70">
                                   <div className="space-y-2 md:col-span-5">
                                     <Label>Raw Material</Label>
-                                    <Select value={row.rawMaterialId} onValueChange={(value) => onMaterialChange(index, value ?? '')}>
-                                      <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Select material">
-                                          {row.rawMaterialId ? materialsById.get(row.rawMaterialId)?.name : undefined}
-                                        </SelectValue>
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {(rawMaterialsQuery.data ?? []).map((material) => (
-                                          <SelectItem key={material.id} value={material.id}>
-                                            {material.name}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
+                                    <Combobox options={materialComboboxOptions} value={row.rawMaterialId} onValueChange={(v) => onMaterialChange(index, v)} placeholder="Type or select..." className="w-full" />
                                   </div>
                                   <div className="space-y-2 md:col-span-2">
                                     <Label>Qty</Label>
@@ -615,11 +619,19 @@ export function CombiMakerPage() {
                                     <Label>Type</Label>
                                     <Input value={row.type} disabled />
                                   </div>
-                                  <div className="flex items-end md:col-span-1">
+                                  <div className="flex items-end gap-1 md:col-span-1">
                                     <Button
                                       type="button"
                                       variant="outline"
-                                      onClick={() => setFormulaRows((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev))}
+                                      onClick={() => setFormulaRows((prev) => [...prev, newFormulaRow()])}
+                                    >
+                                      +
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      disabled={formulaRows.length <= 1}
+                                      onClick={() => setFormulaRows((prev) => prev.filter((_, i) => i !== index))}
                                     >
                                       -
                                     </Button>
@@ -629,9 +641,6 @@ export function CombiMakerPage() {
                             </div>
 
                             <div className="mt-4 flex flex-wrap gap-3">
-                              <Button type="button" variant="outline" onClick={() => setFormulaRows((prev) => [...prev, newFormulaRow()])}>
-                                + Add Row
-                              </Button>
                               <Button type="button" onClick={onSaveFormula} disabled={saveFormulaMutation.isPending}>
                                 {saveFormulaMutation.isPending ? 'Saving...' : 'Save Formula'}
                               </Button>

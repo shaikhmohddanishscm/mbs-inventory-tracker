@@ -57,7 +57,7 @@ interface BuyingLineState {
 /* ─── Constants ─── */
 const rawMaterialsKey = ['raw-materials']
 const detailKey = ['raw-material-details']
-const measuredUnits: Unit[] = ['Piece', 'Bottle']
+const measuredUnits: Unit[] = ['Piece', 'kg', 'Litre']
 const materialTypes: MaterialType[] = ['Core', 'Packaging']
 const unitFallback: Unit = 'Piece'
 const STALE_TIME = 2 * 60 * 1000
@@ -446,15 +446,15 @@ export function RawBuyingPage() {
                   <Label>Date</Label>
                   <Input type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} />
                 </div>
-                <div className="flex items-end">
-                  <Button type="button" variant="outline" className="h-9 w-9 p-0" onClick={() => removeLine(index)}>-</Button>
+                <div className="flex items-end gap-1">
+                  <Button type="button" variant="outline" className="h-9 w-9 p-0" onClick={addLine}>+</Button>
+                  <Button type="button" variant="outline" className="h-9 w-9 p-0" onClick={() => removeLine(index)} disabled={lines.length === 1}>-</Button>
                 </div>
               </div>
             ))}
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <Button type="button" variant="outline" onClick={addLine}>+ Add More</Button>
             <Button className="w-full sm:w-auto" type="button" onClick={onSubmitBuying} disabled={addDetailMutation.isPending || rmQuery.isLoading || !hasRawMaterials}>
               {addDetailMutation.isPending ? 'Saving...' : 'Save'}
             </Button>
@@ -477,7 +477,6 @@ export function RawBuyingPage() {
                     <TableHead>Raw Material</TableHead>
                     <TableHead>Qty</TableHead>
                     <TableHead>Unit</TableHead>
-                    <TableHead>Date</TableHead>
                     <TableHead className="w-[80px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -487,7 +486,6 @@ export function RawBuyingPage() {
                       <TableCell>{row.raw_materials?.name ?? '—'}</TableCell>
                       <TableCell>{Number(row.quantity).toLocaleString()}</TableCell>
                       <TableCell>{row.unit}</TableCell>
-                      <TableCell>{new Date(row.purchase_date).toLocaleDateString()}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <Button variant="ghost" size="icon" onClick={() => openEditDetail(row)} className="h-8 w-8 text-blue-500 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/10" title="Edit">
@@ -500,7 +498,7 @@ export function RawBuyingPage() {
                       </TableCell>
                     </TableRow>
                   )) : (
-                    <TableRow><TableCell className="text-slate-500 dark:text-slate-400" colSpan={5}>No entries yet.</TableCell></TableRow>
+                    <TableRow><TableCell className="text-slate-500 dark:text-slate-400" colSpan={4}>No entries yet.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>

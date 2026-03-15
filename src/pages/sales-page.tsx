@@ -36,13 +36,6 @@ interface ProductOption {
   measured_unit: Unit
 }
 
-interface BatchOption {
-  id: string
-  batch_no: string
-  quantity: number
-  unit: Unit
-}
-
 interface SalesMovementRow {
   id: string
   reference_id: string
@@ -52,7 +45,7 @@ interface SalesMovementRow {
   occurred_at: string
 }
 
-const productsKey = ['products-options']
+const productsKey = ['products']
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -62,17 +55,16 @@ async function fetchProducts(): Promise<ProductOption[]> {
   return (data as ProductOption[]) ?? []
 }
 
-async function fetchBatches(productId: string): Promise<BatchOption[]> {
-  if (!productId) return []
-
+async function fetchProductStock(productId: string): Promise<number> {
+  if (!productId) return 0
   const { data, error } = await supabase
     .from('finished_inventory_batches')
-    .select('id,batch_no,quantity,unit')
+    .select('quantity')
     .eq('product_id', productId)
-    .order('updated_at', { ascending: false })
+    .maybeSingle()
 
   if (error) throw new Error(error.message)
-  return (data as BatchOption[]) ?? []
+  return Number(data?.quantity ?? 0)
 }
 
 async function fetchRecentSalesMovements(): Promise<SalesMovementRow[]> {
@@ -89,14 +81,12 @@ async function fetchRecentSalesMovements(): Promise<SalesMovementRow[]> {
 
 async function submitSales(input: {
   productId: string
-  batchNo: string
   quantity: number
   unit: Unit
   salesDate: string
 }) {
   const { data, error } = await supabase.rpc('fn_sales_transaction', {
     p_product_id: input.productId,
-    p_batch_no: input.batchNo,
     p_quantity: input.quantity,
     p_unit: input.unit,
     p_sales_date: input.salesDate,
@@ -110,7 +100,6 @@ export function SalesPage() {
   const queryClient = useQueryClient()
 
   const [productId, setProductId] = useState('')
-  const [batchNo, setBatchNo] = useState('')
   const [quantity, setQuantity] = useState('')
   const [salesDate, setSalesDate] = useState(today())
   const [errorMsg, setErrorMsg] = useState('')
@@ -121,12 +110,14 @@ export function SalesPage() {
   const [editDate, setEditDate] = useState('')
   const [editError, setEditError] = useState('')
 
-  const productsQuery = useQuery({ queryKey: productsKey, queryFn: fetchProducts, staleTime: 2 * 60 * 1000, refetchOnWindowFocus: false })
-  const batchesQuery = useQuery({
-    queryKey: ['batch-options', productId],
-    queryFn: () => fetchBatches(productId),
+  const productsQuery = useQuery({ queryKey: productsKey, queryFn: fetchProducts, staleTime: 2 * 60 * 1000 })
+
+  const stockQuery = useQuery({
+    queryKey: ['product-stock', productId],
+    queryFn: () => fetchProductStock(productId),
     enabled: Boolean(productId),
   })
+
   const movementsQuery = useQuery({
     queryKey: ['recent-sales-movements'],
     queryFn: fetchRecentSalesMovements,
@@ -139,15 +130,10 @@ export function SalesPage() {
     [productsQuery.data, productId],
   )
 
-  const selectedBatch = useMemo(
-    () => (batchesQuery.data ?? []).find((item) => item.batch_no === batchNo),
-    [batchesQuery.data, batchNo],
-  )
-
   const qtyNum = Number(quantity)
   const isValidQty = Number.isFinite(qtyNum) && qtyNum > 0
-  const availableQty = Number(selectedBatch?.quantity ?? 0)
-  const canSell = isValidQty && selectedBatch ? availableQty >= qtyNum : false
+  const availableQty = stockQuery.data ?? 0
+  const canSell = isValidQty && availableQty >= qtyNum
 
   const submitMutation = useMutation({
     mutationFn: submitSales,
@@ -155,7 +141,7 @@ export function SalesPage() {
       setQuantity('')
       setErrorMsg('')
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['batch-options', productId] }),
+        queryClient.invalidateQueries({ queryKey: ['product-stock', productId] }),
         queryClient.invalidateQueries({ queryKey: ['recent-sales-movements'] }),
         queryClient.invalidateQueries({ queryKey: ['finished-inventory'] }),
       ])
@@ -171,7 +157,7 @@ export function SalesPage() {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: productsKey }),
-        queryClient.invalidateQueries({ queryKey: ['batch-options', productId] }),
+        queryClient.invalidateQueries({ queryKey: ['product-stock', productId] }),
         queryClient.invalidateQueries({ queryKey: ['recent-sales-movements'] }),
         queryClient.invalidateQueries({ queryKey: ['finished-inventory'] }),
       ])
@@ -194,7 +180,7 @@ export function SalesPage() {
       closeEditModal()
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: productsKey }),
-        queryClient.invalidateQueries({ queryKey: ['batch-options', productId] }),
+        queryClient.invalidateQueries({ queryKey: ['product-stock', productId] }),
         queryClient.invalidateQueries({ queryKey: ['recent-sales-movements'] }),
         queryClient.invalidateQueries({ queryKey: ['finished-inventory'] }),
       ])
@@ -253,16 +239,12 @@ export function SalesPage() {
       setErrorMsg('Select a product.')
       return
     }
-    if (!batchNo.trim()) {
-      setErrorMsg('Select a batch.')
-      return
-    }
     if (!isValidQty) {
       setErrorMsg('Quantity must be greater than 0.')
       return
     }
     if (!canSell) {
-      setErrorMsg('Sales quantity exceeds available batch inventory.')
+      setErrorMsg('Sales quantity exceeds available inventory.')
       return
     }
     if (!salesDate) {
@@ -272,9 +254,8 @@ export function SalesPage() {
 
     submitMutation.mutate({
       productId,
-      batchNo: batchNo.trim(),
       quantity: qtyNum,
-      unit: selectedBatch?.unit ?? selectedProduct?.measured_unit ?? 'Piece',
+      unit: selectedProduct?.measured_unit ?? 'Piece',
       salesDate,
     })
   }
@@ -294,7 +275,6 @@ export function SalesPage() {
                 value={productId}
                 onValueChange={(value) => {
                   setProductId(value ?? '')
-                  setBatchNo('')
                 }}
               >
                 <SelectTrigger className="w-full">
@@ -306,24 +286,6 @@ export function SalesPage() {
                   {(productsQuery.data ?? []).map((product) => (
                     <SelectItem key={product.id} value={product.id}>
                       {product.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Batch</Label>
-              <Select value={batchNo} onValueChange={(value) => setBatchNo(value ?? '')}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select batch">
-                    {batchNo ? selectedBatch?.batch_no : undefined}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {(batchesQuery.data ?? []).map((batch) => (
-                    <SelectItem key={batch.id} value={batch.batch_no}>
-                      {batch.batch_no}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -351,7 +313,7 @@ export function SalesPage() {
           <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/70">
             <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Sales Validation</h4>
             <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
-              Available: <strong>{availableQty.toLocaleString()}</strong> {selectedBatch?.unit ?? selectedProduct?.measured_unit ?? 'Piece'}
+              Available: <strong>{availableQty.toLocaleString()}</strong> {selectedProduct?.measured_unit ?? 'Piece'}
             </p>
             <p className={`mt-1 text-sm ${canSell ? 'text-emerald-600' : 'text-rose-600'}`}>
               {canSell ? 'Sale is possible.' : 'Sale is blocked.'}
@@ -419,7 +381,7 @@ export function SalesPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell className="text-slate-500 dark:text-slate-400" colSpan={4}>
+                    <TableCell className="text-slate-500 dark:text-slate-400" colSpan={5}>
                       No sales movements yet.
                     </TableCell>
                   </TableRow>

@@ -1,4 +1,4 @@
-export type Unit = 'Piece' | 'Bottle'
+export type Unit = 'Piece' | 'Bottle' | 'kg' | 'Litre'
 
 export type MaterialType = 'Core' | 'Packaging'
 
@@ -33,10 +33,9 @@ export interface FormulaItem {
   type: MaterialType
 }
 
-export interface FinishedInventoryBatch {
+export interface FinishedInventoryItem {
   id: string
   productId: string
-  batchNo: string
   quantity: number
   unit: Unit
   lastUpdatedAt: string

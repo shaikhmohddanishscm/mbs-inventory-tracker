@@ -52,7 +52,6 @@ interface RawMaterialStock {
 
 interface FinishedInventoryRow {
   id: string
-  batch_no: string
   quantity: number
   unit: Unit
   produced_on: string | null
@@ -61,16 +60,10 @@ interface FinishedInventoryRow {
   } | null
 }
 
-const productsKey = ['products-options']
+const productsKey = ['products']
 const finishedInventoryKey = ['finished-inventory']
 
 const today = () => new Date().toISOString().slice(0, 10)
-
-function generateBatchNo(): string {
-  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-  const counter = String(Math.floor(Math.random() * 9000) + 1000)
-  return `BATCH-${dateStr}-${counter}`
-}
 
 async function fetchProducts(): Promise<ProductOption[]> {
   const { data, error } = await supabase.from('products').select('id,name,measured_unit').order('name')
@@ -115,7 +108,7 @@ async function fetchRawMaterialStock(): Promise<RawMaterialStock[]> {
 async function fetchFinishedInventory(): Promise<FinishedInventoryRow[]> {
   const { data, error } = await supabase
     .from('finished_inventory_batches')
-    .select('id,batch_no,quantity,unit,produced_on,products(name)')
+    .select('id,quantity,unit,produced_on,products(name)')
     .order('updated_at', { ascending: false })
 
   if (error) throw new Error(error.message)
@@ -126,7 +119,6 @@ async function fetchFinishedInventory(): Promise<FinishedInventoryRow[]> {
 
     return {
       id: String(row.id ?? ''),
-      batch_no: String(row.batch_no ?? ''),
       quantity: Number(row.quantity ?? 0),
       unit: (row.unit as Unit) ?? 'Piece',
       produced_on: row.produced_on ? String(row.produced_on) : null,
@@ -141,14 +133,12 @@ async function fetchFinishedInventory(): Promise<FinishedInventoryRow[]> {
 
 async function submitProduction(input: {
   productId: string
-  batchNo: string
   quantity: number
   unit: Unit
   producedOn: string
 }) {
   const { data, error } = await supabase.rpc('fn_production_transaction', {
     p_product_id: input.productId,
-    p_batch_no: input.batchNo,
     p_quantity: input.quantity,
     p_unit: input.unit,
     p_produced_on: input.producedOn,
@@ -162,24 +152,23 @@ export function InventoryPage() {
   const queryClient = useQueryClient()
 
   const [productId, setProductId] = useState('')
-  const [batchNo, setBatchNo] = useState(generateBatchNo())
   const [quantity, setQuantity] = useState('')
   const [producedOn, setProducedOn] = useState(today())
   const [errorMsg, setErrorMsg] = useState('')
 
   // Edit Modal State
-  const [editingBatch, setEditingBatch] = useState<FinishedInventoryRow | null>(null)
+  const [editingItem, setEditingItem] = useState<FinishedInventoryRow | null>(null)
   const [editQty, setEditQty] = useState('')
   const [editDate, setEditDate] = useState('')
   const [editError, setEditError] = useState('')
 
-  const productsQuery = useQuery({ queryKey: productsKey, queryFn: fetchProducts, staleTime: 2 * 60 * 1000, refetchOnWindowFocus: false })
+  const productsQuery = useQuery({ queryKey: productsKey, queryFn: fetchProducts, staleTime: 2 * 60 * 1000 })
   const formulaPreviewQuery = useQuery({
     queryKey: ['formula-preview', productId],
     queryFn: () => fetchFormulaPreview(productId),
     enabled: Boolean(productId),
   })
-  const finishedInventoryQuery = useQuery({ queryKey: finishedInventoryKey, queryFn: fetchFinishedInventory, staleTime: 2 * 60 * 1000, refetchOnWindowFocus: false })
+  const finishedInventoryQuery = useQuery({ queryKey: finishedInventoryKey, queryFn: fetchFinishedInventory, staleTime: 2 * 60 * 1000 })
   const stockQuery = useQuery({ queryKey: ['raw-material-stock'], queryFn: fetchRawMaterialStock, staleTime: 2 * 60 * 1000 })
 
   const { paginatedItems, currentPage, pageSize, setPageSize, totalItems, setCurrentPage } = usePagination(finishedInventoryQuery.data ?? [], 10)
@@ -212,7 +201,6 @@ export function InventoryPage() {
     mutationFn: submitProduction,
     onSuccess: async () => {
       setQuantity('')
-      setBatchNo(generateBatchNo())
       setErrorMsg('')
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: finishedInventoryKey }),
@@ -226,8 +214,8 @@ export function InventoryPage() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: async (batchId: string) => {
-      const { error } = await supabase.rpc('fn_delete_production_transaction', { p_batch_id: batchId })
+    mutationFn: async (invId: string) => {
+      const { error } = await supabase.rpc('fn_delete_production_transaction', { p_inv_id: invId })
       if (error) throw new Error(error.message)
     },
     onSuccess: async () => {
@@ -241,14 +229,14 @@ export function InventoryPage() {
       ])
     },
     onError: (err: Error) => {
-      alert(`Failed to delete production batch: ${friendlyError(err)}`)
+      alert(`Failed to delete production entry: ${friendlyError(err)}`)
     },
   })
 
   const editMutation = useMutation({
-    mutationFn: async (input: { batchId: string; newQty: number; newDate: string }) => {
+    mutationFn: async (input: { invId: string; newQty: number; newDate: string }) => {
       const { error } = await supabase.rpc('fn_edit_production_transaction', {
-        p_batch_id: input.batchId,
+        p_inv_id: input.invId,
         p_new_quantity: input.newQty,
         p_new_produced_on: input.newDate,
       })
@@ -266,26 +254,26 @@ export function InventoryPage() {
       ])
     },
     onError: (err: Error) => {
-      setEditError(`Failed to update production batch: ${err.message}`)
+      setEditError(`Failed to update production entry: ${err.message}`)
     },
   })
 
-  const handleDeleteBatch = (batchId: string) => {
-    if (!batchId) return
-    if (window.confirm('Are you sure you want to delete this production batch? This will restore the used raw materials and remove the product stock.')) {
-      deleteMutation.mutate(batchId)
+  const handleDelete = (invId: string) => {
+    if (!invId) return
+    if (window.confirm('Are you sure you want to delete this production entry? This will restore the used raw materials and remove the product stock.')) {
+      deleteMutation.mutate(invId)
     }
   }
 
-  const openEditModal = (batch: FinishedInventoryRow) => {
-    setEditingBatch(batch)
-    setEditQty(String(batch.quantity))
-    setEditDate(batch.produced_on ? batch.produced_on.slice(0, 10) : today())
+  const openEditModal = (item: FinishedInventoryRow) => {
+    setEditingItem(item)
+    setEditQty(String(item.quantity))
+    setEditDate(item.produced_on ? item.produced_on.slice(0, 10) : today())
     setEditError('')
   }
 
   const closeEditModal = () => {
-    setEditingBatch(null)
+    setEditingItem(null)
     setEditQty('')
     setEditDate('')
     setEditError('')
@@ -303,9 +291,9 @@ export function InventoryPage() {
       return
     }
 
-    if (editingBatch) {
+    if (editingItem) {
       editMutation.mutate({
-        batchId: editingBatch.id,
+        invId: editingItem.id,
         newQty: num,
         newDate: editDate,
       })
@@ -316,10 +304,6 @@ export function InventoryPage() {
     setErrorMsg('')
     if (!productId) {
       setErrorMsg('Select a product.')
-      return
-    }
-    if (!batchNo.trim()) {
-      setErrorMsg('Batch number is required.')
       return
     }
     if (!Number.isFinite(quantityNumber) || quantityNumber <= 0) {
@@ -337,7 +321,6 @@ export function InventoryPage() {
 
     submitMutation.mutate({
       productId,
-      batchNo: batchNo.trim(),
       quantity: quantityNumber,
       unit: selectedProduct?.measured_unit ?? 'Piece',
       producedOn,
@@ -369,11 +352,6 @@ export function InventoryPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="batch-no">Batch (Auto-generated)</Label>
-              <Input id="batch-no" value={batchNo} disabled className="bg-slate-100 dark:bg-slate-800" />
             </div>
 
             <div className="space-y-2">
@@ -440,7 +418,7 @@ export function InventoryPage() {
         </CollapsibleSection>
 
         <section>
-          <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Finished Inventory (Batch-wise)</h3>
+          <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Finished Inventory</h3>
           {finishedInventoryQuery.isLoading ? <p className="text-sm text-slate-600 dark:text-slate-300">Loading finished inventory...</p> : null}
           {finishedInventoryQuery.isError ? (
             <p className="text-sm text-rose-600">Failed to load finished inventory.</p>
@@ -452,10 +430,8 @@ export function InventoryPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Product</TableHead>
-                  <TableHead>Batch</TableHead>
                   <TableHead>Quantity</TableHead>
                   <TableHead>Unit</TableHead>
-                  <TableHead>Produced On</TableHead>
                   <TableHead className="w-[80px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -464,10 +440,8 @@ export function InventoryPage() {
                   paginatedItems.map((row) => (
                     <TableRow key={row.id}>
                       <TableCell>{row.products?.name ?? 'Unknown'}</TableCell>
-                      <TableCell>{row.batch_no}</TableCell>
                       <TableCell>{Number(row.quantity).toLocaleString()}</TableCell>
                       <TableCell>{row.unit}</TableCell>
-                      <TableCell>{row.produced_on ? new Date(row.produced_on).toLocaleDateString() : '-'}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <Button
@@ -475,17 +449,17 @@ export function InventoryPage() {
                             size="icon"
                             onClick={() => openEditModal(row)}
                             className="h-8 w-8 text-blue-500 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/10"
-                            title="Edit production batch"
+                            title="Edit production entry"
                           >
                             <Edit2 className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleDeleteBatch(row.id)}
+                            onClick={() => handleDelete(row.id)}
                             disabled={deleteMutation.isPending}
                             className="h-8 w-8 text-rose-500 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10"
-                            title="Delete production batch"
+                            title="Delete production entry"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -495,8 +469,8 @@ export function InventoryPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-slate-500 dark:text-slate-400">
-                      No finished inventory batches found.
+                    <TableCell colSpan={4} className="text-slate-500 dark:text-slate-400">
+                      No finished inventory found.
                     </TableCell>
                   </TableRow>
                 )}
@@ -519,24 +493,18 @@ export function InventoryPage() {
       </div>
 
       <ConfirmModal
-        open={Boolean(editingBatch)}
+        open={Boolean(editingItem)}
         onCancel={closeEditModal}
         onConfirm={onEditSubmit}
-        title="Edit Production Batch"
-        description="Modify the quantity or date of this batch. The resulting product stock counts and consumed raw materials will be adjusted automatically according to the formula."
+        title="Edit Production Entry"
+        description="Modify the quantity or date of this entry. The resulting product stock counts and consumed raw materials will be adjusted automatically according to the formula."
         confirmLabel="Save Changes"
         busy={editMutation.isPending}
       >
         <div className="mb-2 mt-4 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="dark:text-slate-300">Product</Label>
-              <Input value={editingBatch?.products?.name || ''} disabled className="dark:bg-slate-800 dark:text-slate-200" />
-            </div>
-            <div className="space-y-2">
-              <Label className="dark:text-slate-300">Batch No</Label>
-              <Input value={editingBatch?.batch_no || ''} disabled className="dark:bg-slate-800 dark:text-slate-200" />
-            </div>
+          <div className="space-y-2">
+            <Label className="dark:text-slate-300">Product</Label>
+            <Input value={editingItem?.products?.name || ''} disabled className="dark:bg-slate-800 dark:text-slate-200" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

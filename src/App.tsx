@@ -6,7 +6,6 @@ import { CombiMakerPage } from '@/pages/combimaker-page'
 import { DashboardPage } from '@/pages/dashboard-page'
 import { InventoryPage } from '@/pages/inventory-page'
 import { LoginPage } from './pages/login-page'
-import { LogsPage } from '@/pages/logs-page'
 import { RawBuyingPage } from '@/pages/raw-buying-page'
 import { SalesPage } from '@/pages/sales-page'
 
@@ -22,7 +21,6 @@ function App() {
           <Route path="combimaker" element={<CombiMakerPage />} />
           <Route path="inventory" element={<InventoryPage />} />
           <Route path="sales" element={<SalesPage />} />
-          <Route path="logs" element={<LogsPage />} />
         </Route>
       </Route>
 
@@ -32,3 +30,4 @@ function App() {
 }
 
 export default App
+
