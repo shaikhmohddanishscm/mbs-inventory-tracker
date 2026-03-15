@@ -27,6 +27,7 @@ import {
 import { Pagination } from '@/components/ui/pagination'
 import { usePagination } from '@/hooks/use-pagination'
 import { supabase } from '@/lib/supabase'
+import { friendlyError } from '@/lib/friendly-error'
 import type { Unit } from '@/types/domain'
 
 interface ProductOption {
@@ -159,7 +160,7 @@ export function SalesPage() {
         queryClient.invalidateQueries({ queryKey: ['finished-inventory'] }),
       ])
     },
-    onError: (error) => setErrorMsg(error.message),
+    onError: (error) => setErrorMsg(friendlyError(error)),
   })
 
   const deleteMutation = useMutation({
@@ -176,7 +177,7 @@ export function SalesPage() {
       ])
     },
     onError: (err: Error) => {
-      alert(`Failed to delete sale: ${err.message}`)
+      alert(`Failed to delete sale: ${friendlyError(err)}`)
     },
   })
 
@@ -199,7 +200,7 @@ export function SalesPage() {
       ])
     },
     onError: (err: Error) => {
-      setEditError(`Failed to update sale: ${err.message}`)
+      setEditError(friendlyError(err))
     },
   })
 

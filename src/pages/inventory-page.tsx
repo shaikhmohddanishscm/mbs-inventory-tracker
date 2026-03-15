@@ -27,6 +27,7 @@ import {
 import { Pagination } from '@/components/ui/pagination'
 import { usePagination } from '@/hooks/use-pagination'
 import { supabase } from '@/lib/supabase'
+import { friendlyError } from '@/lib/friendly-error'
 import type { Unit } from '@/types/domain'
 
 interface ProductOption {
@@ -41,8 +42,12 @@ interface FormulaPreviewRow {
   unit: Unit
   raw_materials: {
     name: string
-    current_qty: number
   } | null
+}
+
+interface RawMaterialStock {
+  raw_material_id: string
+  quantity: number
 }
 
 interface FinishedInventoryRow {
@@ -78,7 +83,7 @@ async function fetchFormulaPreview(productId: string): Promise<FormulaPreviewRow
 
   const { data, error } = await supabase
     .from('product_formula_items')
-    .select('raw_material_id,quantity_required,unit,raw_materials(name,current_qty)')
+    .select('raw_material_id,quantity_required,unit,raw_materials(name)')
     .eq('product_id', productId)
     .order('created_at', { ascending: true })
 
@@ -93,13 +98,18 @@ async function fetchFormulaPreview(productId: string): Promise<FormulaPreviewRow
       quantity_required: Number(row.quantity_required ?? 0),
       unit: (row.unit as Unit) ?? 'Piece',
       raw_materials: raw
-        ? {
-            name: String((raw as { name?: unknown }).name ?? ''),
-            current_qty: Number((raw as { current_qty?: unknown }).current_qty ?? 0),
-          }
+        ? { name: String((raw as { name?: unknown }).name ?? '') }
         : null,
     }
   })
+}
+
+async function fetchRawMaterialStock(): Promise<RawMaterialStock[]> {
+  const { data, error } = await supabase
+    .from('raw_material_details')
+    .select('raw_material_id,quantity')
+  if (error) throw new Error(error.message)
+  return (data as RawMaterialStock[]) ?? []
 }
 
 async function fetchFinishedInventory(): Promise<FinishedInventoryRow[]> {
@@ -170,6 +180,7 @@ export function InventoryPage() {
     enabled: Boolean(productId),
   })
   const finishedInventoryQuery = useQuery({ queryKey: finishedInventoryKey, queryFn: fetchFinishedInventory, staleTime: 2 * 60 * 1000, refetchOnWindowFocus: false })
+  const stockQuery = useQuery({ queryKey: ['raw-material-stock'], queryFn: fetchRawMaterialStock, staleTime: 2 * 60 * 1000 })
 
   const { paginatedItems, currentPage, pageSize, setPageSize, totalItems, setCurrentPage } = usePagination(finishedInventoryQuery.data ?? [], 10)
 
@@ -183,7 +194,8 @@ export function InventoryPage() {
     const qty = Number.isFinite(quantityNumber) && quantityNumber > 0 ? quantityNumber : 0
     return (formulaPreviewQuery.data ?? []).map((row) => {
       const needed = Number(row.quantity_required) * qty
-      const available = Number(row.raw_materials?.current_qty ?? 0)
+      const stockRow = (stockQuery.data ?? []).find((s) => s.raw_material_id === row.raw_material_id)
+      const available = Number(stockRow?.quantity ?? 0)
       return {
         materialName: row.raw_materials?.name ?? 'Unknown',
         unit: row.unit,
@@ -192,7 +204,7 @@ export function InventoryPage() {
         ok: available >= needed,
       }
     })
-  }, [formulaPreviewQuery.data, quantityNumber])
+  }, [formulaPreviewQuery.data, stockQuery.data, quantityNumber])
 
   const allFeasible = feasibilityRows.length > 0 && feasibilityRows.every((row) => row.ok)
 
@@ -206,9 +218,11 @@ export function InventoryPage() {
         queryClient.invalidateQueries({ queryKey: finishedInventoryKey }),
         queryClient.invalidateQueries({ queryKey: ['formula-preview', productId] }),
         queryClient.invalidateQueries({ queryKey: ['raw-materials'] }),
+        queryClient.invalidateQueries({ queryKey: ['raw-material-details'] }),
+        queryClient.invalidateQueries({ queryKey: ['raw-material-stock'] }),
       ])
     },
-    onError: (error) => setErrorMsg(error.message),
+    onError: (error) => setErrorMsg(friendlyError(error)),
   })
 
   const deleteMutation = useMutation({
@@ -222,10 +236,12 @@ export function InventoryPage() {
         queryClient.invalidateQueries({ queryKey: productsKey }),
         queryClient.invalidateQueries({ queryKey: ['formula-preview', productId] }),
         queryClient.invalidateQueries({ queryKey: ['raw-materials'] }),
+        queryClient.invalidateQueries({ queryKey: ['raw-material-details'] }),
+        queryClient.invalidateQueries({ queryKey: ['raw-material-stock'] }),
       ])
     },
     onError: (err: Error) => {
-      alert(`Failed to delete production batch: ${err.message}`)
+      alert(`Failed to delete production batch: ${friendlyError(err)}`)
     },
   })
 
@@ -245,6 +261,8 @@ export function InventoryPage() {
         queryClient.invalidateQueries({ queryKey: productsKey }),
         queryClient.invalidateQueries({ queryKey: ['formula-preview', productId] }),
         queryClient.invalidateQueries({ queryKey: ['raw-materials'] }),
+        queryClient.invalidateQueries({ queryKey: ['raw-material-details'] }),
+        queryClient.invalidateQueries({ queryKey: ['raw-material-stock'] }),
       ])
     },
     onError: (err: Error) => {

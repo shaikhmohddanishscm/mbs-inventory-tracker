@@ -8,7 +8,6 @@ import { InventoryPage } from '@/pages/inventory-page'
 import { LoginPage } from './pages/login-page'
 import { LogsPage } from '@/pages/logs-page'
 import { RawBuyingPage } from '@/pages/raw-buying-page'
-import { RawMaterialsPage } from '@/pages/raw-materials-page'
 import { SalesPage } from '@/pages/sales-page'
 
 function App() {
@@ -19,8 +18,7 @@ function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
-          <Route path="raw-materials" element={<RawMaterialsPage />} />
-          <Route path="raw-buying" element={<RawBuyingPage />} />
+          <Route path="raw-material" element={<RawBuyingPage />} />
           <Route path="combimaker" element={<CombiMakerPage />} />
           <Route path="inventory" element={<InventoryPage />} />
           <Route path="sales" element={<SalesPage />} />

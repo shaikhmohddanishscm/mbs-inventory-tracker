@@ -25,6 +25,7 @@ import {
 import { Pagination } from '@/components/ui/pagination'
 import { usePagination } from '@/hooks/use-pagination'
 import { supabase } from '@/lib/supabase'
+import { friendlyError } from '@/lib/friendly-error'
 import type { MaterialType, Unit } from '@/types/domain'
 
 interface RawMaterialOption {
@@ -200,7 +201,7 @@ export function CombiMakerPage() {
       setErrorMsg('')
       await queryClient.invalidateQueries({ queryKey: productsKey })
     },
-    onError: (error) => setErrorMsg(error.message),
+    onError: (error) => setErrorMsg(friendlyError(error)),
   })
 
   const updateProductMutation = useMutation({
@@ -212,7 +213,7 @@ export function CombiMakerPage() {
       setErrorMsg('')
       await queryClient.invalidateQueries({ queryKey: productsKey })
     },
-    onError: (error) => setErrorMsg(error.message),
+    onError: (error) => setErrorMsg(friendlyError(error)),
   })
 
   const deleteProductMutation = useMutation({
@@ -228,7 +229,7 @@ export function CombiMakerPage() {
         queryClient.invalidateQueries({ queryKey: formulaKeyBase }),
       ])
     },
-    onError: (error) => setErrorMsg(error.message),
+    onError: (error) => setErrorMsg(friendlyError(error)),
   })
 
   const saveFormulaMutation = useMutation({
@@ -238,7 +239,7 @@ export function CombiMakerPage() {
       setFormulaEditing(false)
       await queryClient.invalidateQueries({ queryKey: [...formulaKeyBase, formulaProductId ?? ''] })
     },
-    onError: (error) => setErrorMsg(error.message),
+    onError: (error) => setErrorMsg(friendlyError(error)),
   })
 
   const onCreateProduct = () => {

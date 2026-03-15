@@ -10,18 +10,32 @@ interface CollapsibleSectionProps {
 export function CollapsibleSection({ title, defaultOpen = false, children }: CollapsibleSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
   const [isDesktop, setIsDesktop] = useState(false)
+  const [transitionDone, setTransitionDone] = useState(defaultOpen)
   const contentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 768px)')
     const update = (e: MediaQueryListEvent | MediaQueryList) => {
       setIsDesktop(e.matches)
-      if (e.matches) setIsOpen(true)
+      if (e.matches) {
+        setIsOpen(true)
+        setTransitionDone(true)
+      }
     }
     update(mq)
     mq.addEventListener('change', update)
     return () => mq.removeEventListener('change', update)
   }, [])
+
+  const handleToggle = () => {
+    if (!showToggle) return
+    if (isOpen) {
+      setTransitionDone(false)
+      setIsOpen(false)
+    } else {
+      setIsOpen(true)
+    }
+  }
 
   const showToggle = !isDesktop
 
@@ -30,7 +44,7 @@ export function CollapsibleSection({ title, defaultOpen = false, children }: Col
       {/* Header — clickable only on mobile */}
       <button
         type="button"
-        onClick={() => { if (showToggle) setIsOpen((prev) => !prev) }}
+        onClick={handleToggle}
         className={`flex w-full items-center justify-between px-4 py-3 text-left ${showToggle ? 'cursor-pointer' : 'cursor-default'}`}
         aria-expanded={isOpen}
         aria-controls="collapsible-content"
@@ -48,7 +62,12 @@ export function CollapsibleSection({ title, defaultOpen = false, children }: Col
       <div
         id="collapsible-content"
         ref={contentRef}
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}
+        onTransitionEnd={() => { if (isOpen) setTransitionDone(true) }}
+        className={`transition-all duration-300 ease-in-out ${
+          isOpen
+            ? `max-h-[2000px] opacity-100 ${transitionDone ? 'overflow-visible' : 'overflow-hidden'}`
+            : 'max-h-0 opacity-0 overflow-hidden'
+        }`}
       >
         <div className="px-4 pb-4">
           {children}

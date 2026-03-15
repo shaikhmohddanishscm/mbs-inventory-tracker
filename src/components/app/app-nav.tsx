@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 
 const routes = [
   { to: '/', label: 'Dashboard', mobileLabel: 'Dash' },
-  { to: '/raw-buying', label: 'Raw Material', mobileLabel: 'Raw Mat' },
+  { to: '/raw-material', label: 'Raw Material', mobileLabel: 'Raw Mat' },
   { to: '/combimaker', label: 'Combimaker', mobileLabel: 'Combi' },
   { to: '/inventory', label: 'Inventory', mobileLabel: 'Inventory' },
   { to: '/sales', label: 'Sales', mobileLabel: 'Sales' },
